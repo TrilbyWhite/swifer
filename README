@@ -1,0 +1,21 @@
+Wifi: Wireless connection tool with auto connect features
+
+This is a work in progress - Updates will be posted here.
+
+Currently (28 Dec 2012) wifi has the following abilities:
+
+wifi [ [auto | any] add | reconnect]
+
+- called with no parameters wifi will present an ncurses menu of available networks.  If you select a secure network wifi will prompt you for a passkey.
+- with "auto" no menu will be displayed.  Wifi will search for the best available netowrk and connect automatically to the known network with the best signal strength.
+- with "any" (implies auto) wifi will automaticall connect to the strongest signal in either a known network or an open (unsecure) network.
+- with "add" wifi will save whichever network is selected (either via the menu or through auto-detection).  This network will then be 'known' for future attempts.
+- with "reconnect" wifi will check the network quality and attempt a new connection whenever the signal drops below a threshold.  NOTE: reconnect is not yet implemented.
+
+BUGS: there definitely are.  Let me know when you find them.
+
+FUTURE DIRECTIONS:
+- complete the reconnect feature
+- reduce the reliance on external programs as I learn more about the wireless libs
+- write sytemd service files for 'auto' modes
+
