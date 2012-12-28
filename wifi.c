@@ -236,16 +236,6 @@ int secure_connect(wireless_scan *ws) {
 	connect_helper(ws);
 }
 
-void keep_alive(int argc,const char **argv) {
-// TODO: this isn't ready yet.
-//	while (CONNECTED) {
-//		sleep(TIMEOUT);
-//		iw_get_basic_config(skfd,ifname,&cur);
-//	}
-//	? somthing like: execve(argv[0],argv,NULL);
-}
-
-
 int main(int argc, const char **argv) {
 	char *cmd = (char *) calloc(strlen(ifname)+20,sizeof(char));
 	sprintf(cmd,"ip link set %s up",ifname);
@@ -278,7 +268,14 @@ int main(int argc, const char **argv) {
 		free(netfile);
 		netfile = NULL;
 	}
-	if (mode & MODE_RECON) keep_alive(argc,argv);
+	if (mode & MODE_RECON & MODE_AUTO) {
+		while (True /*TODO: connected? */) sleep(TIMEOUT);
+		iw_sockets_close(skfd);
+		return main(argc,argv);
+	}
+	else if (mode & MODE_RECON)
+		fprintf(stderr,"[%s] reconnect not yet implemented for manual modes.\n",
+			argv[0]); 
 	iw_sockets_close(skfd);
 	return 0;
 }
