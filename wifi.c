@@ -177,7 +177,7 @@ static void connect_helper(wireless_scan *ws) {
 		system(cmd);
 		free(cmd);
 	}
-	else if (!is_known(ws)) {
+	else if (!is_known(ws) || (mode & MODE_ADD)) {
 		sprintf(cmd,"rm \"%s\"",netfile);
 		system(cmd);
 	}
@@ -258,7 +258,7 @@ int main(int argc, const char **argv) {
 	for (i = 1; i < argc; i++) {
 		if (strncmp(argv[i],"ad",2)==0) mode |= MODE_ADD;
 		else if (strncmp(argv[i],"au",2)==0) mode |= MODE_AUTO;
-		else if (strncmp(argv[i],"an",2)==0) mode |= MODE_ANY;
+		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY & MODE_AUTO);
 		else if (strncmp(argv[i],"re",2)==0) mode |= MODE_RECON;
 		else fprintf(stderr,"[%s] Ignoring unknown parameter: %s\n",
 			argv[0],argv[i]);
