@@ -175,8 +175,8 @@ int ws_connect(wireless_scan *ws) {
 			fprintf(cfg,"%s\n",ws->b.essid);
 		if (cfg) fclose(cfg);
 	}
-	if (mode & MODE_VERBOSE) sprintf(cmd,"nohup dhcpcd %s",ifname);
-	else sprintf(cmd,"nohup dhcpcd %s >/dev/null 2>&1",ifname);
+	if (mode & MODE_VERBOSE) sprintf(cmd,"nohup dhcpcd %s &",ifname);
+	else sprintf(cmd,"nohup dhcpcd %s >/dev/null 2>&1 &",ifname);
 	system(cmd);
 }
 
