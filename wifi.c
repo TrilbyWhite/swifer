@@ -120,7 +120,7 @@ wireless_scan *show_menu() {
 		move(0,0);
 		attron(COLOR_PAIR(1));
 		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
-		for (ws = context.result, i=0; ws; ws = ws->next, i++);
+		for (ws = context.result, i=0; ws; ws = ws->next, i++)
 			if (strlen(ws->b.essid) >= 1) draw_entry(ws,(i==sel));
 		attron(COLOR_PAIR(1));
 		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
