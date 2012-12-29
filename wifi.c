@@ -18,11 +18,12 @@
 #define THRESHOLD	10
 #define MAX_LINE	255
 
-#define MODE_AUTO	0x0001
-#define MODE_ANY	0x0002
-#define MODE_ADD	0x0010
-#define MODE_RECON	0x0100
-#define MODE_SEC	0x1000
+#define MODE_AUTO		0x0001
+#define MODE_ANY		0x0002
+#define MODE_ADD		0x0010
+#define MODE_RECONNECT	0x0100
+#define MODE_SECURE		0x1000
+#define MODE_VERBOSE	0x2000
 
 static int draw_entry(wireless_scan *, int);
 static int is_known(wireless_scan *);
@@ -47,8 +48,8 @@ int draw_entry(wireless_scan *ws,int sel) {
 	if (strncmp(cur.essid,ws->b.essid,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
 	/* ESSID & selection cursor */
 	if (sel) attron(A_REVERSE);
-	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(3));
-	else attron(COLOR_PAIR(4));
+	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(4));
+	else attron(COLOR_PAIR(3));
 	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,ws->b.essid);
 	if (sel) attroff(A_REVERSE);
 	/* Connection strength */
@@ -57,12 +58,12 @@ int draw_entry(wireless_scan *ws,int sel) {
 	else if (perc > 84) attron(COLOR_PAIR(6));
 	else if (perc > 64) attron(COLOR_PAIR(7));
 	else attron(COLOR_PAIR(8));
-	printw("%3d%%",perc);
+	printw("%3d%%\n",perc);
 }
 
 int is_known(wireless_scan *ws) {
-	r
 	FILE *cfg = fopen(config,"r");
+	if (!cfg) return False;
 	char line[MAX_LINE+1];
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
 		if (strncmp(line,"[NETWORKS]",10) == 0)
@@ -100,7 +101,7 @@ int refresh_list() {
 	wireless_scan *ws;
 	int n;
 	for (ws = context.result, n=0; ws; ws = ws->next)
-		if (strlen(ws->b.essid) >= 1) n++;
+		if (strlen(ws->b.essid) > 0) n++;
 	clear();
 	return n-1;
 }
@@ -109,7 +110,7 @@ wireless_scan *show_menu() {
 	/* Init ncurses */
 	initscr(); raw(); noecho(); curs_set(0);
 	start_color(); use_default_colors();
-	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,10,-1); init_pair(4,9,-1);
+	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,12,-1); init_pair(4,9,-1);
 	init_pair(5,46,-1); init_pair(6,40,-1); init_pair(7,28,-1); init_pair(8,22,-1);
 	/* Select entry */
 	wireless_scan *ws;
@@ -119,7 +120,7 @@ wireless_scan *show_menu() {
 	while (running) {
 		move(0,0);
 		attron(COLOR_PAIR(1));
-		printw(" %-*s  %%      l,n   BSSID          \n",IW_ESSID_MAX_SIZE+2,"Network"); 
+		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
 		i = 0;
 		ws = context.result;
 		while (ws) {
@@ -128,7 +129,7 @@ wireless_scan *show_menu() {
 			i++;
 		}
 		attron(COLOR_PAIR(1));
-		printw(" %-*s \n",IW_ESSID_MAX_SIZE+31," "); 
+		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
 		refresh();
 		c = getchar();
 		if (c == 'q') running = False;
@@ -151,7 +152,7 @@ wireless_scan *show_menu() {
 }
 
 int ws_connect(wireless_scan *ws) {
-	if ( !is_known(ws) && (mode & MODE_SEC)) { /* secure unknown network */
+	if ( !is_known(ws) && (mode & MODE_SECURE)) { /* secure unknown network */
 		char psk[64];
 		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
 		fflush(stdout);
@@ -160,7 +161,7 @@ int ws_connect(wireless_scan *ws) {
 			ws->b.essid,psk);
 		system(cmd);
 	}
-	if (mode & MODE_SEC) { /* secure known/new */
+	if (mode & MODE_SECURE) { /* secure known/new */
 		sprintf(cmd,"wpa_supplicant -B -i%s -c/etc/wpa_supplicant.conf",ifname);
 		system(cmd);
 	}
@@ -173,11 +174,16 @@ int ws_connect(wireless_scan *ws) {
 		iw_set_ext(skfd,ifname,SIOCSIWESSID,&req);
 	}
 	if (!is_known(ws) && (mode & MODE_ADD))	{
-		FILE *cfg = fopen(config,"a");
-		fprintf(cfg,"%s\n",ws->b.essid);
-		fclose(cfg);
+		FILE *cfg;
+		if ( (cfg=fopen(config,"ax")) ) /* no config file, create new */
+			fprintf(cfg,"\n[NETWORKS]\n%s\n",ws->b.essid);
+		else if ( (cfg=fopen(config,"a")) ) /* normal append */
+			fprintf(cfg,"%s\n",ws->b.essid);
+		if (cfg) fclose(cfg);
 	}
-	sprintf(cmd,"dhcpcd %s",ifname); system(cmd);
+	if (mode & MODE_VERBOSE) sprintf(cmd,"dhcpcd %s",ifname);
+	else sprintf(cmd,"dhcpcd %s >/dev/null 2>&1",ifname);
+	system(cmd);
 }
 
 int main(int argc, const char **argv) {
@@ -187,30 +193,33 @@ int main(int argc, const char **argv) {
 		fscanf(cfg,"INTERFACE: %s\n",ifname);
 		fclose(cfg);
 	}
+	/* Get basic wifi info */
+	we_ver = iw_get_kernel_we_version();
+	skfd = iw_sockets_open();
+	iw_get_basic_config(skfd,ifname,&cur);
 	/* Bring up interface (eg "ip link set IFACE up") */
 	struct ifreq req;
+	int err;
 	strncpy(req.ifr_name,ifname,IFNAMSIZ);
-	if (ioctl(skfd,SIOCGIFFLAGS,&req)) {
+	if ( (err=ioctl(skfd,SIOCGIFFLAGS,&req)) ){
 		close(skfd); return 1;
 	}
 	req.ifr_flags |= IFF_UP;
 	if (ioctl(skfd,SIOCSIFFLAGS,&req)) {
 		close(skfd); return 1;
 	}
-	/* Get basic wifi info */
-	we_ver = iw_get_kernel_we_version();
-	skfd = iw_sockets_open();
-	iw_get_basic_config(skfd,ifname,&cur);
-	int i;
 	/* Processes command line arguments */
+	int i;
 	for (i = 1; i < argc; i++) {
 		if (strncmp(argv[i],"ad",2)==0) mode |= MODE_ADD;
 		else if (strncmp(argv[i],"au",2)==0) mode |= MODE_AUTO;
 		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY & MODE_AUTO);
-		else if (strncmp(argv[i],"re",2)==0) mode |= MODE_RECON;
+		else if (strncmp(argv[i],"re",2)==0) mode |= MODE_RECONNECT;
+		else if (strncmp(argv[i],"ve",2)==0) mode |= MODE_VERBOSE;
 		else fprintf(stderr,"[%s] Ignoring unknown parameter: %s\n",
 			argv[0],argv[i]);
 	}
+	if ( (mode & MODE_VERBOSE) && (mode & MODE_AUTO) ) mode &= ~MODE_VERBOSE;
 	/* Scan and select network */
 	iw_scan(skfd,ifname,we_ver,&context);
 	wireless_scan *ws;
@@ -225,15 +234,15 @@ int main(int argc, const char **argv) {
 	system("killall dhcpcd > /dev/null 2>&1 && sleep 0.5");
 	system("killall wpa_supplicant > /dev/null 2>&1 && sleep 0.5");
 	if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
-	if (ws->b.key_flags == 2048) mode |= MODE_SEC;
+	if (ws->b.key_flags == 2048) mode |= MODE_SECURE;
 	ws_connect(ws);
 	/* Keep alive to reconnect? */
-	if (mode & MODE_RECON & MODE_AUTO) {
+	if (mode & MODE_RECONNECT & MODE_AUTO) {
 		while (True /*TODO: connected? */) sleep(TIMEOUT);
 		iw_sockets_close(skfd);
 		return main(argc,argv);
 	}
-	else if (mode & MODE_RECON)
+	else if (mode & MODE_RECONNECT)
 		fprintf(stderr,"[%s] reconnect not yet implemented for manual modes.\n",
 			argv[0]);
 	/* Close up shop */
