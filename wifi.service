@@ -1,7 +1,11 @@
 [Unit]
 Description=Wifi connection tool
+Before=network.target
+Wants=network.target
 
 [Service]
+RemainAfterExit=yes
+Type=forking
 ExecStart=/usr/bin/wifi auto
 #ExecStart=/usr/bin/wifi any
 #ExecStart=/usr/bin/wifi auto reconnect

@@ -30,6 +30,7 @@ static int is_known(wireless_scan *);
 static wireless_scan *get_best();
 static int refresh_list();
 static wireless_scan *show_menu();
+static int spawn(char *);
 static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
@@ -145,6 +146,21 @@ wireless_scan *show_menu() {
 	return ws;
 }
 
+int spawn(char *proc) {
+	if (fork() != 0) return 0;
+	char *args[6];
+	args[0] = proc;
+	if (strncmp(proc,"wpa_",4)==0) {
+		args[1] = "-B"; args[2] = "-i"; args[3] = ifname;
+		args[4] = "-c/etc/wpa_supplicant.conf"; args[5] = NULL;
+	}
+	else {
+		args[1] = ifname; args[2] = NULL;
+	}
+	setsid(); fclose(stderr); fclose(stdout);
+	execvp(args[0],args);
+}
+
 int ws_connect(wireless_scan *ws) {
 	if ( !is_known(ws) && (mode & MODE_SECURE)) { /* secure unknown network */
 		char psk[64];
@@ -156,8 +172,7 @@ int ws_connect(wireless_scan *ws) {
 		system(cmd);
 	}
 	if (mode & MODE_SECURE) { /* secure known/new */
-		sprintf(cmd,"wpa_supplicant -B -i%s -c/etc/wpa_supplicant.conf",ifname);
-		system(cmd);
+		spawn("wpa_supplicant");
 	}
 	else {	/* unsecure network */
 		struct iwreq req;
@@ -175,9 +190,7 @@ int ws_connect(wireless_scan *ws) {
 			fprintf(cfg,"%s\n",ws->b.essid);
 		if (cfg) fclose(cfg);
 	}
-	if (mode & MODE_VERBOSE) sprintf(cmd,"dhcpcd %s",ifname);
-	else sprintf(cmd,"dhcpcd %s >/dev/null 2>&1",ifname);
-	system(cmd);
+	spawn("dhcpcd");
 }
 
 int main(int argc, const char **argv) {
