@@ -7,7 +7,7 @@ all: wifi.c
 
 install: all
 	@install -Dm755 wifi ${DESTDIR}${PREFIX}/bin/wifi
-	@install -d ${DESTDIR}/etc/wifi/networks
+	@install -Dm wifi.conf ${DESTDIR}/etc/wifi.conf
 
 clean:
 	@rm wifi

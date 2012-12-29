@@ -17,13 +17,14 @@
 #define ELEN		IW_ESSID_MAX_SIZE
 #define TIMEOUT		5
 #define THRESHOLD	10
+#define MAX_LINE	255
 
 #define MODE_AUTO	0x0001
 #define MODE_ANY	0x0002
 #define MODE_ADD	0x0010
 #define MODE_RECON	0x0100
+#define MODE_SEC	0x1000
 
-static int create_netfile(wireless_scan *,int);
 static int draw(wireless_scan *, int);
 static int init_curses();
 static int is_known(wireless_scan *);
@@ -31,46 +32,16 @@ static wireless_scan *get_best();
 static int refresh_list();
 static wireless_scan *select_network();
 static wireless_scan *show_menu();
-static int secure_connect(wireless_scan *);
-static int simple_connect(wireless_scan *);
-
-static const char *netpath = "/etc/wifi/networks";
+static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
-static char *netfile = NULL;
+static const char *config = "/etc/wifi.conf";
+
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
 
-int create_netfile(wireless_scan *ws,int sec) {
-	char *cmd = NULL;
-	FILE *fnet = fopen(netfile,"w");
-	fprintf(fnet,"## Connection script for \"%s\"\n\n",ws->b.essid);
-	fprintf(fnet,"killall dhcpcd && sleep 0.5\nip link set %s up\n",ifname);
-	if (sec) {
-		fprintf(fnet,"killall wpa_supplicant && sleep 0.5\n");
-		fprintf(fnet,"cat <<EOF > wifiTMP\n");
-		fclose(fnet);
-		char psk[64];
-		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
-		fflush(stdout);
-		scanf("%s",psk);
-		cmd = (char *) calloc(strlen(ws->b.essid) +
-			strlen(psk) + strlen(netfile) + 35,sizeof(char));
-		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" >> \"%s\"",
-				ws->b.essid,psk,netfile);
-		system(cmd);
-		fnet = fopen(netfile,"a");
-		fprintf(fnet,"EOF\nwpa_supplicant -B -i%s -c wifiTMP\n",ifname);
-		fprintf(fnet,"rm wifiTMP\ndhcpcd %s\n\n",ifname);
-	}
-	else {
-		fprintf(fnet,"iwconfig %s essid \"%s\"\n",ifname,ws->b.essid);
-		fprintf(fnet,"dhcpcd %s\n\n",ifname);
-	}
-	fclose(fnet);
-	if (cmd) free(cmd);
-} 
+static char cmd[MAX_LINE] = "";
 
 int draw(wireless_scan *ws,int sel) {
 	int perc = 100 * ws->stats.qual.qual / 64;
@@ -113,18 +84,18 @@ int init_curses() {
 }
 
 int is_known(wireless_scan *ws) {
-	if (!ws) return False;
-	if (strlen(ws->b.essid) < 1) return 0;
-	char *t = (char *) calloc(strlen(ws->b.essid) +
-			strlen(netpath) + 4, sizeof(char));
-	sprintf(t,"%s/%s",netpath,ws->b.essid);
-	int known = open(t,O_RDONLY);
-	free(t);
-	if (known > 0)
-		close(known);
-	else
-		known = 0;
-	return known;
+	FILE *cfg = fopen(config,"r");
+	char line[MAX_LINE+1];
+	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
+		if (strncmp(line,"[NETWORKS]",10) == 0)
+			break;
+	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
+		if (strncmp(line,ws->b.essid,strlen(ws->b.essid)) == 0) {
+			fclose(cfg);
+			return True;
+		}
+	fclose(cfg);
+	return False;
 }
 
 wireless_scan *get_best() {
@@ -200,53 +171,43 @@ wireless_scan *show_menu() {
 	return ws;
 }
 
-static void connect_helper(wireless_scan *ws) {
-	/* connect: */
-	char *cmd = (char *) calloc(strlen(netfile)+26,sizeof(char));
-	sprintf(cmd,"sh \"%s\" >/dev/null 2>&1",netfile);
-	system(cmd);
-	/* save netfile: */
-	if (!is_known(ws) && (mode & MODE_ADD) ) {
-		char *cmd = (char *) realloc(cmd,(strlen(netfile) +
-			strlen(netpath) + strlen(ws->b.essid) + 15) * sizeof(char));
-		sprintf(cmd,"cp \"%s\" \"%s/%s\"",netfile,netpath,ws->b.essid);
-		system(cmd);
-		free(cmd);
-	}
-	else if (!is_known(ws) || (mode & MODE_ADD)) {
-		sprintf(cmd,"rm \"%s\"",netfile);
+int ws_connect(wireless_scan *ws) {
+	if ( !is_known(ws) && (mode & MODE_SEC)) { /* secure unknown network */
+		char psk[64];
+		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
+		fflush(stdout);
+		scanf("%s",psk);
+		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" >> /etc/wpa_supplicant.conf",
+			ws->b.essid,psk);
 		system(cmd);
 	}
-	free(cmd);
-}
-
-int secure_connect(wireless_scan *ws) {
-	char keyfile[255];
-	netfile = (char *) calloc(strlen(ws->b.essid)+14,sizeof(char));
-	sprintf(netfile,"/tmp/wifi_%s",ws->b.essid);
-	create_netfile(ws,True);
-	connect_helper(ws);
-}
-
-int simple_connect(wireless_scan *ws) {
-	if (is_known(ws)) {
-		netfile = (char *) calloc(strlen(ws->b.essid) +
-				strlen(netpath) + 4, sizeof(char));
-		sprintf(netfile,"%s/%s",netpath,ws->b.essid);
+	if (mode & MODE_SEC) { /* secure known/new */
+		sprintf(cmd,"wpa_supplicant -B -i%s -c/etc/wpa_supplicant.conf",ifname);
+		system(cmd);
 	}
-	else {
-		netfile = (char *) calloc(strlen(ws->b.essid)+14,sizeof(char));
-		sprintf(netfile,"/tmp/wifi_%s",ws->b.essid);
-		create_netfile(ws,False);
+	else {	/* unsecure network */
+		struct iwreq req;
+		req.u.essid.flags = 1;
+		req.u.essid.pointer = (caddr_t) ws->b.essid;
+		req.u.essid.length = strlen(ws->b.essid);
+		if (we_ver < 21) req.u.essid.length++;
+		iw_set_ext(skfd,ifname,SIOCSIWESSID,&req);
 	}
-	connect_helper(ws);
+	if (!is_known(ws) && (mode & MODE_ADD))	{
+		FILE *cfg = fopen(config,"a");
+		fprintf(cfg,"%s\n",ws->b.essid);
+		fclose(cfg);
+	}
+	sprintf(cmd,"dhcpcd %s",ifname); system(cmd);
 }
 
 int main(int argc, const char **argv) {
-	char *cmd = (char *) calloc(strlen(ifname)+20,sizeof(char));
-	sprintf(cmd,"ip link set %s up",ifname);
-	system(cmd);
-	free(cmd);
+	FILE *cfg;
+	if ( (cfg=fopen(config,"r")) ) {
+		fscanf(cfg,"INTERFACE: %s\n",ifname);
+		fclose(cfg);
+	}
+	sprintf(cmd,"ip link set %s up",ifname); system(cmd);
 	we_ver = iw_get_kernel_we_version();
 	skfd = iw_sockets_open();
 	iw_get_basic_config(skfd,ifname,&cur);
@@ -268,12 +229,11 @@ int main(int argc, const char **argv) {
 		fprintf(stderr,"[wifi] no suitable networks found.\n");
 		return 1;
 	}
-	if (is_known(ws) || (ws->b.key_flags != 2048)) simple_connect(ws);
-	else secure_connect(ws);
-	if (netfile) {
-		free(netfile);
-		netfile = NULL;
-	}
+	system("killall dhcpcd > /dev/null 2>&1 && sleep 0.5");
+	system("killall wpa_supplicant > /dev/null 2>&1 && sleep 0.5");
+	if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
+	if (ws->b.key_flags == 2048) mode |= MODE_SEC;
+	ws_connect(ws);
 	if (mode & MODE_RECON & MODE_AUTO) {
 		while (True /*TODO: connected? */) sleep(TIMEOUT);
 		iw_sockets_close(skfd);
