@@ -1,13 +1,14 @@
 
 PREFIX ?= /usr
+PROG	= swifer
 
-all: wifi.c
-	@gcc -o wifi wifi.c -liw -lncurses
-	@strip wifi
+all: ${PROG}.c
+	@gcc -o ${PROG} ${PROG}.c -liw -lncurses
+	@strip ${PROG}
 
 install: all
-	@install -Dm755 wifi ${DESTDIR}${PREFIX}/bin/wifi
-	@install -Dm644 wifi.service ${DESTDIR}${PREFIX}/lib/systemd/system/wifi.service
+	@install -Dm755 ${PROG} ${DESTDIR}${PREFIX}/bin/${PROG}
+	@install -Dm644 ${PROG}.service ${DESTDIR}${PREFIX}/lib/systemd/system/${PROG}.service
 
 clean:
-	@rm wifi
+	@rm ${PROG}

@@ -1,5 +1,5 @@
 # Maintainer: Jesse McClure AKA "Trilby" <jmcclure [at] cns [dot] umass [dot] edu>
-pkgname=wifi-git
+pkgname=swifer-git
 pkgver=20121228
 pkgrel=1
 pkgdesc="Wireless connection script with auto connect"

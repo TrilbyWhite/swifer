@@ -1,16 +1,16 @@
-Wifi: Wireless connection tool with auto connect features
+Swifer: Simple wireless connection tool with auto connect features
 
 This is a work in progress - Updates will be posted here.
 
-Currently (29 Dec 2012) wifi has the following abilities:
+Currently (29 Dec 2012) swifer has the following abilities:
 
-wifi [ auto | any | add | reconnect | verbose ]
+swifer [ auto | any | add | reconnect | verbose ]
 
-- called with no parameters wifi will present an ncurses menu of available networks.  If you select a secure network wifi will prompt you for a passkey.
-- with "auto" no menu will be displayed.  Wifi will search for the best available netowrk and connect automatically to the known network with the best signal strength.
-- with "any" (implies auto) wifi will automaticall connect to the strongest signal in either a known network or an open (unsecure) network.
-- with "add" wifi will save whichever network is selected (either via the menu or through auto-detection).  This network will then be 'known' for future attempts.
-- with "reconnect" wifi will check the network quality and attempt a new connection whenever the signal drops below a threshold.  NOTE: reconnect is not yet implemented for manual modes.  This is low priority as its main usefulness is for auto modes.
+- called with no parameters swifer will present an ncurses menu of available networks.  If you select a secure network swifer will prompt you for a passkey.
+- with "auto" no menu will be displayed.  Swifer will search for the best available netowrk and connect automatically to the known network with the best signal strength.
+- with "any" (implies auto) swifer will automaticall connect to the strongest signal in either a known network or an open (unsecure) network.
+- with "add" swifer will save whichever network is selected (either via the menu or through auto-detection).  This network will then be 'known' for future attempts.
+- with "reconnect" swifer will check the network quality and attempt a new connection whenever the signal drops below a threshold.  NOTE: reconnect is not yet implemented for manual modes.  This is low priority as its main usefulness is for auto modes.
 - "verbose" is for troubleshooting.  Disables redirection of dhcpcd output to /dev/null.  Verbose is disabled in auto modes.
 
 BUGS: there definitely are.  Let me know when you find them.
@@ -28,6 +28,6 @@ MANUAL MENU LAYOUT:
 
 
 NOTES:
-1) Wifi must be run as root, or with sudo to detect and connect to networks.
-2) On the first use of "add" wifi will attempt to create a new file /etc/wifi.conf.  If this name or location is unfavorable, it can currently be modified only by changing line 36 of the source and recompiling.  Input on naming and placement of this file are welcome.
+1) Swifer must be run as root, or with sudo to detect and connect to networks.
+2) On the first use of "add" swifer will attempt to create a new file /etc/swifer.conf.  If this name or location is unfavorable, it can currently be modified only by changing line 36 of the source and recompiling.  Input on naming and placement of this file are welcome.
 	
