@@ -7,6 +7,7 @@ all: wifi.c
 
 install: all
 	@install -Dm755 wifi ${DESTDIR}${PREFIX}/bin/wifi
+	@install -Dm644 wifi.service ${DESTDIR}${PREFIX}/lib/systemd/system/wifi.service
 
 clean:
 	@rm wifi
