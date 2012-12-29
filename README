@@ -20,6 +20,7 @@ BUGS: there definitely are.  Let me know when you find them.
 
 FUTURE DIRECTIONS:
 - reduce the reliance on external programs as I learn more about the wireless libs
-    - iwconfig reliance has been removed.
+    - `iwconfig` reliance has been removed.
+	- `ip` reliance has been removed.
 - write sytemd service files for 'auto' modes
 

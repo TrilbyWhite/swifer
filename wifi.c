@@ -202,16 +202,28 @@ int ws_connect(wireless_scan *ws) {
 }
 
 int main(int argc, const char **argv) {
+	/* Check config file for interface */
 	FILE *cfg;
 	if ( (cfg=fopen(config,"r")) ) {
 		fscanf(cfg,"INTERFACE: %s\n",ifname);
 		fclose(cfg);
 	}
-	sprintf(cmd,"ip link set %s up",ifname); system(cmd);
+	/* Bring up interface (eg "ip link set IFACE up") */
+	struct ifreq req;
+	strncpy(req.ifr_name,ifname,IFNAMSIZ);
+	if (ioctl(skfd,SIOCGIFFLAGS,&req)) {
+		close(skfd); return 1;
+	}
+	req.ifr_flags |= IFF_UP;
+	if (ioctl(skfd,SIOCSIFFLAGS,&req)) {
+		close(skfd); return 1;
+	}
+	/* Get basic wifi info */
 	we_ver = iw_get_kernel_we_version();
 	skfd = iw_sockets_open();
 	iw_get_basic_config(skfd,ifname,&cur);
 	int i;
+	/* Processes command line arguments */
 	for (i = 1; i < argc; i++) {
 		if (strncmp(argv[i],"ad",2)==0) mode |= MODE_ADD;
 		else if (strncmp(argv[i],"au",2)==0) mode |= MODE_AUTO;
@@ -220,6 +232,7 @@ int main(int argc, const char **argv) {
 		else fprintf(stderr,"[%s] Ignoring unknown parameter: %s\n",
 			argv[0],argv[i]);
 	}
+	/* Scan and select network */
 	iw_scan(skfd,ifname,we_ver,&context);
 	wireless_scan *ws;
 	if (mode & MODE_AUTO) ws = get_best();
@@ -229,11 +242,13 @@ int main(int argc, const char **argv) {
 		fprintf(stderr,"[wifi] no suitable networks found.\n");
 		return 1;
 	}
+	/* Stop any current processes then connect to "ws" */
 	system("killall dhcpcd > /dev/null 2>&1 && sleep 0.5");
 	system("killall wpa_supplicant > /dev/null 2>&1 && sleep 0.5");
 	if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
 	if (ws->b.key_flags == 2048) mode |= MODE_SEC;
 	ws_connect(ws);
+	/* Keep alive to reconnect? */
 	if (mode & MODE_RECON & MODE_AUTO) {
 		while (True /*TODO: connected? */) sleep(TIMEOUT);
 		iw_sockets_close(skfd);
@@ -241,7 +256,8 @@ int main(int argc, const char **argv) {
 	}
 	else if (mode & MODE_RECON)
 		fprintf(stderr,"[%s] reconnect not yet implemented for manual modes.\n",
-			argv[0]); 
+			argv[0]);
+	/* Close up shop */
 	iw_sockets_close(skfd);
 	return 0;
 }
