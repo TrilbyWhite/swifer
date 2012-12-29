@@ -14,7 +14,6 @@
 #define True	1
 #define False	0
 
-#define ELEN		IW_ESSID_MAX_SIZE
 #define TIMEOUT		5
 #define THRESHOLD	10
 #define MAX_LINE	255
@@ -25,65 +24,44 @@
 #define MODE_RECON	0x0100
 #define MODE_SEC	0x1000
 
-static int draw(wireless_scan *, int);
-static int init_curses();
+static int draw_entry(wireless_scan *, int);
 static int is_known(wireless_scan *);
 static wireless_scan *get_best();
 static int refresh_list();
-static wireless_scan *select_network();
 static wireless_scan *show_menu();
 static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
 static const char *config = "/etc/wifi.conf";
-
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
-
 static char cmd[MAX_LINE] = "";
 
-int draw(wireless_scan *ws,int sel) {
-	int perc = 100 * ws->stats.qual.qual / 64;
+int draw_entry(wireless_scan *ws,int sel) {
+	/* known and/or currently connected */
 	attron(COLOR_PAIR(2));
+	if (strncmp(cur.essid,ws->b.essid,IW_ESSID_MAX_SIZE)==0) attron(A_REVERSE);
+	if (is_known(ws)) printw("*");
+	else printw(" ");
+	if (strncmp(cur.essid,ws->b.essid,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
+	/* ESSID & selection cursor */
 	if (sel) attron(A_REVERSE);
-	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(9));
-	else attron(COLOR_PAIR(10));
-	printw(" %-*s ",ELEN+2,ws->b.essid);
+	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(3));
+	else attron(COLOR_PAIR(4));
+	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,ws->b.essid);
 	if (sel) attroff(A_REVERSE);
-	if (perc > 96) attron(COLOR_PAIR(4));
-	else if (perc > 84) attron(COLOR_PAIR(5));
-	else if (perc > 69) attron(COLOR_PAIR(6));
-	else if (perc > 44) attron(COLOR_PAIR(7));
+	/* Connection strength */
+	int perc = 100 * ws->stats.qual.qual / 64;
+	if (perc > 94) attron(COLOR_PAIR(5));
+	else if (perc > 84) attron(COLOR_PAIR(6));
+	else if (perc > 64) attron(COLOR_PAIR(7));
 	else attron(COLOR_PAIR(8));
 	printw("%3d%%",perc);
-	attron(COLOR_PAIR(3));
-	printw("  %3u,%-2u ",ws->stats.qual.level, ws->stats.qual.noise);
-	if (strncmp(cur.essid,ws->b.essid,ELEN)==0) attron(A_REVERSE);
-	printw(" 00:00:00:00:00 \n");
-	if (strncmp(cur.essid,ws->b.essid,ELEN)==0) attroff(A_REVERSE);
-}
-
-int init_curses() {
-	initscr();
-	raw();
-	noecho();
-	curs_set(0);
-	start_color();
-	use_default_colors();
-	init_pair(1,232,4);
-	init_pair(2,11,-1);
-	init_pair(3,8,-1);
-	init_pair(4,46,-1);
-	init_pair(5,40,-1);
-	init_pair(6,34,-1);
-	init_pair(7,28,-1);
-	init_pair(8,22,-1);
-	init_pair(9,9,-1);
-	init_pair(10,12,-1);
 }
 
 int is_known(wireless_scan *ws) {
+	r
 	FILE *cfg = fopen(config,"r");
 	char line[MAX_LINE+1];
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
@@ -115,7 +93,7 @@ wireless_scan *get_best() {
 
 int refresh_list() {
 	clear();
-	attron(COLOR_PAIR(10));
+	attron(COLOR_PAIR(2));
 	printw("\n\n  Getting wifi listing ...\n");
 	refresh();
 	iw_scan(skfd,ifname,we_ver,&context);
@@ -127,7 +105,13 @@ int refresh_list() {
 	return n-1;
 }
 
-wireless_scan *select_network() {
+wireless_scan *show_menu() {
+	/* Init ncurses */
+	initscr(); raw(); noecho(); curs_set(0);
+	start_color(); use_default_colors();
+	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,10,-1); init_pair(4,9,-1);
+	init_pair(5,46,-1); init_pair(6,40,-1); init_pair(7,28,-1); init_pair(8,22,-1);
+	/* Select entry */
 	wireless_scan *ws;
 	int running = True;
 	int c,i,sel = 0;
@@ -135,16 +119,16 @@ wireless_scan *select_network() {
 	while (running) {
 		move(0,0);
 		attron(COLOR_PAIR(1));
-		printw(" %-*s  %%      l,n   BSSID          \n",ELEN+2,"Network"); 
+		printw(" %-*s  %%      l,n   BSSID          \n",IW_ESSID_MAX_SIZE+2,"Network"); 
 		i = 0;
 		ws = context.result;
 		while (ws) {
-			if (strlen(ws->b.essid) >= 1) draw(ws,(i==sel));
+			if (strlen(ws->b.essid) >= 1) draw_entry(ws,(i==sel));
 			ws = ws->next;
 			i++;
 		}
 		attron(COLOR_PAIR(1));
-		printw(" %-*s \n",ELEN+31," "); 
+		printw(" %-*s \n",IW_ESSID_MAX_SIZE+31," "); 
 		refresh();
 		c = getchar();
 		if (c == 'q') running = False;
@@ -155,18 +139,13 @@ wireless_scan *select_network() {
 		if (sel >= n) sel = n;
 		else if (sel < 0) sel = 0;
 	}
-	if (!running) {
+	if (!running) {	/* "q" selected */
 		endwin();
 		iw_sockets_close(skfd);
 		exit(0);
 	}
 	for (i = 0, ws = context.result; i != sel; i++, ws = ws->next);
-	return ws;
-}
-
-wireless_scan *show_menu() {
-	init_curses();
-	wireless_scan *ws = select_network();
+	/* End ncurses session & return result */
 	endwin();
 	return ws;
 }
