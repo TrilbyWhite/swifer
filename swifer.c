@@ -194,6 +194,11 @@ int ws_connect(wireless_scan *ws) {
 }
 
 int main(int argc, const char **argv) {
+	/* Check uid */
+	if (getuid() != 0) {
+		fprintf(stderr,"Swifer must be run as root.\n");
+		return 1;
+	}
 	/* Check config file for interface */
 	FILE *cfg;
 	if ( (cfg=fopen(config,"r")) ) {
