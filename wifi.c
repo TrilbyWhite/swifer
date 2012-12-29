@@ -84,9 +84,8 @@ wireless_scan *get_best() {
 		if (strlen(ws->b.essid) == 0) continue;
 		known = is_known(ws);
 		sec = (ws->b.key_flags == 2048);
-		qual = ( best ? (ws->stats.qual.qual > best->stats.qual.qual) : False);
-		if ( (!best && known) || (!best && (mode&MODE_ANY) && !sec) ||
-			(qual && known) || (qual && (mode&MODE_ANY) && !sec))
+		qual = ( best ? (ws->stats.qual.qual > best->stats.qual.qual) : True);
+		if ( (qual && known) || (qual && (mode&MODE_ANY) && !sec) )
 			best = ws;
 	}
 	return best;
@@ -121,13 +120,8 @@ wireless_scan *show_menu() {
 		move(0,0);
 		attron(COLOR_PAIR(1));
 		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
-		i = 0;
-		ws = context.result;
-		while (ws) {
+		for (ws = context.result, i=0; ws; ws = ws->next, i++);
 			if (strlen(ws->b.essid) >= 1) draw_entry(ws,(i==sel));
-			ws = ws->next;
-			i++;
-		}
 		attron(COLOR_PAIR(1));
 		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
 		refresh();
