@@ -8,8 +8,8 @@ arch=('any')
 license=('GPLv3')
 depends=('wireless_tools' 'wpa_supplicant' 'dhcpcd' 'ncurses')
 makedepends=('git')
-_gitroot="git://github.com/TrilbyWhite/wifi2.git"
-_gitname="wifi2"
+_gitroot="git://github.com/TrilbyWhite/swifer.git"
+_gitname="swifer"
 
 build() {
     cd "$srcdir"

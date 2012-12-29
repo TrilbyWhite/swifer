@@ -34,7 +34,7 @@ static int spawn(char *);
 static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
-static const char *config = "/etc/wifi.conf";
+static const char *config = "/etc/swifer.conf";
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
@@ -234,7 +234,7 @@ int main(int argc, const char **argv) {
 	else ws = show_menu();
 	if (!ws) {
 		iw_sockets_close(skfd);
-		fprintf(stderr,"[wifi] no suitable networks found.\n");
+		fprintf(stderr,"[swifer] no suitable networks found.\n");
 		return 1;
 	}
 	/* Stop any current processes then connect to "ws" */
