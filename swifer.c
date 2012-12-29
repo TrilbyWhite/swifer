@@ -17,6 +17,7 @@
 #define TIMEOUT		5
 #define THRESHOLD	10
 #define MAX_LINE	255
+#define DHCPLEN		24
 
 #define MODE_AUTO		0x0001
 #define MODE_ANY		0x0002
@@ -39,6 +40,7 @@ static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
 static char cmd[MAX_LINE] = "";
+static char dhcp[DHCPLEN] = "dhcpcd";
 
 int draw_entry(wireless_scan *ws,int sel) {
 	/* known and/or currently connected */
@@ -199,11 +201,20 @@ int main(int argc, const char **argv) {
 		fprintf(stderr,"Swifer must be run as root.\n");
 		return 1;
 	}
-	/* Check config file for interface */
+	/* Check config file for interface and dhcp */
 	FILE *cfg;
 	if ( (cfg=fopen(config,"r")) ) {
-		fscanf(cfg,"INTERFACE: %s\n",ifname);
-		fclose(cfg);
+		char *line = calloc(MAX_LINE+1,sizeof(char));
+		char *val = calloc(MAX_LINE+1,sizeof(char));
+		while (fgets(line,MAX_LINE,cfg) != NULL) {
+			if (sscanf(line,"INTERFACE = %s",val))
+				strncpy(ifname,val,IFNAMSIZ);
+			else if (sscanf(line,"DHCP = %s",val))
+				strncpy(dhcp,val,DHCPLEN);
+			else if (strncmp(line,"[NETWORKS]",10))
+				break;
+		}
+		free(line); free(val); fclose(cfg);
 	}
 	/* Get basic wifi info */
 	we_ver = iw_get_kernel_we_version();
