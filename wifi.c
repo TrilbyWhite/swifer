@@ -1,9 +1,14 @@
+/****************************************************************************\
+* WIFI - wifi connector with automatic connection modes
+* By: Jesse McClure, copyright 2012
+* License: GPLv3
+* USAGE: wifi [ auto | any | add | reconnect ]
+\****************************************************************************/
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ncurses.h>
-#include <unistd.h>
 #include <iwlib.h>
 
 #define True	1
@@ -18,15 +23,16 @@
 #define MODE_ADD	0x0010
 #define MODE_RECON	0x0100
 
+static int create_netfile(wireless_scan *,int);
 static int draw(wireless_scan *, int);
 static int init_curses();
-static int refresh_list();
-static wireless_scan *show_menu();
-static int simple_connect(wireless_scan *);
-static int secure_connect(wireless_scan *);
-static wireless_scan *select_network();
 static int is_known(wireless_scan *);
 static wireless_scan *get_best();
+static int refresh_list();
+static wireless_scan *select_network();
+static wireless_scan *show_menu();
+static int secure_connect(wireless_scan *);
+static int simple_connect(wireless_scan *);
 
 static const char *netpath = "/etc/wifi/networks";
 
@@ -35,6 +41,36 @@ static char *netfile = NULL;
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
+
+int create_netfile(wireless_scan *ws,int sec) {
+	char *cmd = NULL;
+	FILE *fnet = fopen(netfile,"w");
+	fprintf(fnet,"## Connection script for \"%s\"\n\n",ws->b.essid);
+	fprintf(fnet,"killall dhcpcd && sleep 0.5\nip link set %s up\n",ifname);
+	if (sec) {
+		fprintf(fnet,"killall wpa_supplicant && sleep 0.5\n");
+		fprintf(fnet,"cat <<EOF > wifiTMP\n");
+		fclose(fnet);
+		char psk[64];
+		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
+		fflush(stdout);
+		scanf("%s",psk);
+		cmd = (char *) calloc(strlen(ws->b.essid) +
+			strlen(psk) + strlen(netfile) + 35,sizeof(char));
+		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" >> \"%s\"",
+				ws->b.essid,psk,netfile);
+		system(cmd);
+		fnet = fopen(netfile,"a");
+		fprintf(fnet,"EOF\nwpa_supplicant -B -i%s -c wifiTMP\n",ifname);
+		fprintf(fnet,"rm wifiTMP\ndhcpcd %s\n\n",ifname);
+	}
+	else {
+		fprintf(fnet,"iwconfig %s essid \"%s\"\n",ifname,ws->b.essid);
+		fprintf(fnet,"dhcpcd %s\n\n",ifname);
+	}
+	fclose(fnet);
+	if (cmd) free(cmd);
+} 
 
 int draw(wireless_scan *ws,int sel) {
 	int perc = 100 * ws->stats.qual.qual / 64;
@@ -120,13 +156,6 @@ int refresh_list() {
 	return n-1;
 }
 
-wireless_scan *show_menu() {
-	init_curses();
-	wireless_scan *ws = select_network();
-	endwin();
-	return ws;
-}
-
 wireless_scan *select_network() {
 	wireless_scan *ws;
 	int running = True;
@@ -164,6 +193,13 @@ wireless_scan *select_network() {
 	return ws;
 }
 
+wireless_scan *show_menu() {
+	init_curses();
+	wireless_scan *ws = select_network();
+	endwin();
+	return ws;
+}
+
 static void connect_helper(wireless_scan *ws) {
 	/* connect: */
 	char *cmd = (char *) calloc(strlen(netfile)+26,sizeof(char));
@@ -184,34 +220,12 @@ static void connect_helper(wireless_scan *ws) {
 	free(cmd);
 }
 
-static void create_netfile(wireless_scan *ws,int sec) {
-	char *cmd = NULL;
-	FILE *fnet = fopen(netfile,"w");
-	fprintf(fnet,"## Connection script for \"%s\"\n\n",ws->b.essid);
-	fprintf(fnet,"killall dhcpcd && sleep 0.5\nip link set %s up\n",ifname);
-	if (sec) {
-		fprintf(fnet,"killall wpa_supplicant && sleep 0.5\n");
-		fprintf(fnet,"cat <<EOF > wifiTMP\n");
-		fclose(fnet);
-		char psk[64];
-		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
-		fflush(stdout);
-		scanf("%s",psk);
-		cmd = (char *) calloc(strlen(ws->b.essid) +
-			strlen(psk) + strlen(netfile) + 35,sizeof(char));
-		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" >> \"%s\"",
-				ws->b.essid,psk,netfile);
-		system(cmd);
-		fnet = fopen(netfile,"a");
-		fprintf(fnet,"EOF\nwpa_supplicant -B -i%s -c wifiTMP\n",ifname);
-		fprintf(fnet,"rm wifiTMP\ndhcpcd %s\n\n",ifname);
-	}
-	else {
-		fprintf(fnet,"iwconfig %s essid \"%s\"\n",ifname,ws->b.essid);
-		fprintf(fnet,"dhcpcd %s\n\n",ifname);
-	}
-	fclose(fnet);
-	if (cmd) free(cmd);
+int secure_connect(wireless_scan *ws) {
+	char keyfile[255];
+	netfile = (char *) calloc(strlen(ws->b.essid)+14,sizeof(char));
+	sprintf(netfile,"/tmp/wifi_%s",ws->b.essid);
+	create_netfile(ws,True);
+	connect_helper(ws);
 }
 
 int simple_connect(wireless_scan *ws) {
@@ -225,14 +239,6 @@ int simple_connect(wireless_scan *ws) {
 		sprintf(netfile,"/tmp/wifi_%s",ws->b.essid);
 		create_netfile(ws,False);
 	}
-	connect_helper(ws);
-}
-
-int secure_connect(wireless_scan *ws) {
-	char keyfile[255];
-	netfile = (char *) calloc(strlen(ws->b.essid)+14,sizeof(char));
-	sprintf(netfile,"/tmp/wifi_%s",ws->b.essid);
-	create_netfile(ws,True);
 	connect_helper(ws);
 }
 
