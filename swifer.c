@@ -30,6 +30,7 @@ static int draw_entry(wireless_scan *, int);
 static int is_known(wireless_scan *);
 static wireless_scan *get_best();
 static int refresh_list();
+static int remove_network(const char *);
 static wireless_scan *show_menu();
 static int spawn(const char *,const char *);
 static int ws_connect(wireless_scan *);
@@ -40,7 +41,7 @@ static const char *netpath = "/usr/share/swifer/";
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
-static char cmd[MAX_LINE] = "";
+static char cmd[MAX_LINE+1] = "";
 static char dhcp[DHCPLEN] = "dhcpcd";
 
 int draw_entry(wireless_scan *ws,int sel) {
@@ -107,6 +108,26 @@ int refresh_list() {
 		if (strlen(ws->b.essid) > 0) n++;
 	clear();
 	return n-1;
+}
+
+int remove_network(const char *network) {
+	sprintf(cmd,"rm %s%s > /dev/null 2>&1",netpath,network);
+	system(cmd);
+	FILE *cfg;
+	FILE *tmp;
+	if ( !(cfg=fopen(config,"r")) ) exit(1);
+	if ( !(tmp=fopen("/tmp/swifer.tmp","w")) ) {
+		fclose(cfg); exit(1);
+	}
+	while ( fgets(cmd,MAX_LINE,cfg) != NULL ) {
+		if (strncmp(cmd,network,strlen(network)) != 0) {
+			fprintf(tmp,cmd);
+		}
+	}
+	fclose(cfg); fclose(tmp);
+	sprintf(cmd,"mv /tmp/swifer.tmp %s",config);
+	system(cmd);
+	exit(0);
 }
 
 wireless_scan *show_menu() {
@@ -254,6 +275,9 @@ int main(int argc, const char **argv) {
 		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY & MODE_AUTO);
 		else if (strncmp(argv[i],"re",2)==0) mode |= MODE_RECONNECT;
 		else if (strncmp(argv[i],"ve",2)==0) mode |= MODE_VERBOSE;
+		else if (strncmp(argv[i],"de",2)==0) {
+			if (argc > i+1) remove_network(argv[i+1]);
+		}
 		else fprintf(stderr,"[%s] Ignoring unknown parameter: %s\n",
 			argv[0],argv[i]);
 	}
