@@ -36,7 +36,7 @@ static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
 static const char *config = "/etc/swifer.conf";
-static const char *netpath = "/usr/swifer/";
+static const char *netpath = "/usr/share/swifer/";
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
