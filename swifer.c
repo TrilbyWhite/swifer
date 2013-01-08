@@ -31,11 +31,12 @@ static int is_known(wireless_scan *);
 static wireless_scan *get_best();
 static int refresh_list();
 static wireless_scan *show_menu();
-static int spawn(char *);
+static int spawn(const char *,const char *);
 static int ws_connect(wireless_scan *);
 
 static char ifname[IFNAMSIZ+1] = "wlan0";
 static const char *config = "/etc/swifer.conf";
+static const char *netpath = "/usr/swifer/";
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
@@ -148,33 +149,39 @@ wireless_scan *show_menu() {
 	return ws;
 }
 
-int spawn(char *proc) {
+int spawn(const char *proc,const char *netfile) {
 	if (fork() != 0) return 0;
-	char *args[6];
+	const char *args[7];
 	args[0] = proc;
-	if (strncmp(proc,"wpa_",4)==0) {
+	if (netfile) {	
 		args[1] = "-B"; args[2] = "-i"; args[3] = ifname;
-		args[4] = "-c/etc/wpa_supplicant.conf"; args[5] = NULL;
+		args[4] = "-c"; args[5] = netfile; args[6] = NULL;
 	}
 	else {
 		args[1] = ifname; args[2] = NULL;
 	}
 	setsid(); fclose(stderr); fclose(stdout);
-	execvp(args[0],args);
+	execvp(args[0],(char * const *)args);
 }
 
 int ws_connect(wireless_scan *ws) {
+	char *netfile = NULL;
+	if (mode & MODE_SECURE) {
+		netfile = (char *) calloc(strlen(netpath)+strlen(ws->b.essid)+2,
+			sizeof(char));
+		strcpy(netfile,netpath);
+		strcat(netfile,ws->b.essid);
+	}
 	if ( !is_known(ws) && (mode & MODE_SECURE)) { /* secure unknown network */
 		char psk[64];
 		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
 		fflush(stdout);
 		scanf("%s",psk);
-		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" >> /etc/wpa_supplicant.conf",
-			ws->b.essid,psk);
+		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" > %s",ws->b.essid,psk,netfile);
 		system(cmd);
 	}
 	if (mode & MODE_SECURE) { /* secure known/new */
-		spawn("wpa_supplicant");
+		spawn("wpa_supplicant",netfile);
 	}
 	else {	/* unsecure network */
 		struct iwreq req;
@@ -192,7 +199,15 @@ int ws_connect(wireless_scan *ws) {
 			fprintf(cfg,"%s\n",ws->b.essid);
 		if (cfg) fclose(cfg);
 	}
-	spawn("dhcpcd");
+	else if (!is_known(ws) && (mode & MODE_SECURE)) {
+		sprintf(cmd,"rm %s",netfile);
+		system(cmd);
+	}	
+	if (netfile) {
+		free(netfile);
+		netfile = NULL;
+	}
+	spawn(dhcp,netfile);
 }
 
 int main(int argc, const char **argv) {

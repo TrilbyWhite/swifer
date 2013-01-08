@@ -9,6 +9,7 @@ all: ${PROG}.c
 install: all
 	@install -Dm755 ${PROG} ${DESTDIR}${PREFIX}/bin/${PROG}
 	@install -Dm644 ${PROG}.service ${DESTDIR}${PREFIX}/lib/systemd/system/${PROG}.service
+	@install -D ${DESTDIR}${PREFIX}/share/${PROG}
 
 clean:
 	@rm ${PROG}
