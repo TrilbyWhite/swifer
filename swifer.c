@@ -198,7 +198,7 @@ int ws_connect(wireless_scan *ws) {
 		fprintf(stdout,"Enter passkey for \"%s\"\n> ",ws->b.essid);
 		fflush(stdout);
 		scanf("%s",psk);
-		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" > %s",ws->b.essid,psk,netfile);
+		sprintf(cmd,"wpa_passphrase \"%s\" \"%s\" > \"%s\"",ws->b.essid,psk,netfile);
 		system(cmd);
 	}
 	if (mode & MODE_SECURE) { /* secure known/new */
