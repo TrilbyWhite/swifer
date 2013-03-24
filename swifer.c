@@ -42,6 +42,7 @@ static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
 static char cmd[MAX_LINE+1] = "";
+static char *killall = "killall", *wpa_sup = "wpa_supplicant", *re = "re", *an = "an";
 static char dhcp[DHCPLEN] = "dhcpcd";
 
 int draw_entry(wireless_scan *ws,int sel) {
@@ -287,22 +288,32 @@ int main(int argc, const char **argv) {
 	wireless_scan *ws;
 	if (mode & MODE_AUTO) ws = get_best();
 	else ws = show_menu();
-	if (!ws) {
-		iw_sockets_close(skfd);
+	const char *arg[4];
+	if (ws) { /* Stop any current processes then connect to "ws" */
+		arg[0] = killall; arg[1] = dhcp; arg[2] = NULL;
+		if (fork()==0) {
+			fclose(stdout); fclose(stderr);
+			execvp(arg[0],(char * const *) arg);
+		}
+		arg[1] = wpa_sup;
+		if (fork()==0) {
+			fclose(stdout); fclose(stderr);
+			execvp(arg[0],(char * const *) arg);
+		}
+		sleep(1);
+		if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
+		if (ws->b.key_flags == 2048) mode |= MODE_SECURE;
+		ws_connect(ws);
+	}
+	else if ( !(mode & MODE_RECONNECT) ) {
 		fprintf(stderr,"[swifer] no suitable networks found.\n");
 		return 1;
 	}
-	/* Stop any current processes then connect to "ws" */
-	system("killall dhcpcd > /dev/null 2>&1 && sleep 0.5");
-	system("killall wpa_supplicant > /dev/null 2>&1 && sleep 0.5");
-	if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
-	if (ws->b.key_flags == 2048) mode |= MODE_SECURE;
-	ws_connect(ws);
 	/* Keep alive to reconnect? */
+	iw_sockets_close(skfd);
 	if (mode & MODE_RECONNECT) {
 		if (fork() == 0) {
 			setsid();
-			iw_sockets_close(skfd);
 			int level = THRESHOLD + 1, ret;
 			FILE *procw;
 			while (level > THRESHOLD) {
@@ -312,11 +323,11 @@ int main(int argc, const char **argv) {
 				fclose(procw);
 				if (ret != 1) level = 0;
 			}
-			execvp(argv[0],(char * const *) argv);
+			arg[0] = argv[0]; arg[1] = re; arg[2] = an; arg[3] = NULL;
+			if ( !(mode & MODE_ANY)) arg[2] = NULL;
+			execvp(arg[0],(char * const *) arg);
 		}
 	}
-	/* Close up shop */
-	iw_sockets_close(skfd);
 	return 0;
 }
 
