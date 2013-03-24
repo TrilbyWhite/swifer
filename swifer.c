@@ -273,7 +273,7 @@ int main(int argc, const char **argv) {
 		if (strncmp(argv[i],"ad",2)==0) mode |= MODE_ADD;
 		else if (strncmp(argv[i],"au",2)==0) mode |= MODE_AUTO;
 		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY | MODE_AUTO);
-		else if (strncmp(argv[i],"re",2)==0) mode |= MODE_RECONNECT;
+		else if (strncmp(argv[i],"re",2)==0) mode |= (MODE_RECONNECT | MODE_AUTO);
 		else if (strncmp(argv[i],"ve",2)==0) mode |= MODE_VERBOSE;
 		else if (strncmp(argv[i],"de",2)==0) {
 			if (argc > i+1) remove_network(argv[i+1]);
@@ -299,7 +299,7 @@ int main(int argc, const char **argv) {
 	if (ws->b.key_flags == 2048) mode |= MODE_SECURE;
 	ws_connect(ws);
 	/* Keep alive to reconnect? */
-	if (mode & MODE_RECONNECT & MODE_AUTO) {
+	if (mode & MODE_RECONNECT) {
 		if (fork() == 0) {
 			setsid();
 			iw_sockets_close(skfd);
@@ -315,9 +315,6 @@ int main(int argc, const char **argv) {
 			execvp(argv[0],(char * const *) argv);
 		}
 	}
-	else if (mode & MODE_RECONNECT)
-		fprintf(stderr,"[%s] reconnect not yet implemented for manual modes.\n",
-			argv[0]);
 	/* Close up shop */
 	iw_sockets_close(skfd);
 	return 0;
