@@ -14,7 +14,7 @@
 #define True	1
 #define False	0
 
-#define TIMEOUT		5
+#define TIMEOUT		10
 #define THRESHOLD	10
 #define MAX_LINE	255
 #define DHCPLEN		24
@@ -300,9 +300,20 @@ int main(int argc, const char **argv) {
 	ws_connect(ws);
 	/* Keep alive to reconnect? */
 	if (mode & MODE_RECONNECT & MODE_AUTO) {
-		while (True /*TODO: connected? */) sleep(TIMEOUT);
-		iw_sockets_close(skfd);
-		return main(argc,argv);
+		if (fork() == 0) {
+			setsid();
+			iw_sockets_close(skfd);
+			int level = THRESHOLD + 1, ret;
+			FILE *procw;
+			while (level > THRESHOLD) {
+				sleep(TIMEOUT);
+				procw = fopen(PROC_NET_WIRELESS,"r");
+				ret = fscanf(procw,"%*[^\n]\n%*[^\n]\n wlan0: %*d %d.",&level);
+				fclose(procw);
+				if (ret != 1) level = 0;
+			}
+			execvp(argv[0],(char * const *) argv);
+		}
 	}
 	else if (mode & MODE_RECONNECT)
 		fprintf(stderr,"[%s] reconnect not yet implemented for manual modes.\n",
