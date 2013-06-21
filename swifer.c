@@ -8,8 +8,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <ncurses.h>
 #include <iwlib.h>
+#include <netinet/in.h>
 
 #define True	1
 #define False	0
@@ -25,6 +28,7 @@
 #define MODE_RECONNECT	0x0100
 #define MODE_SECURE		0x1000
 #define MODE_VERBOSE	0x2000
+#define MODE_HIDDEN		0x4000
 
 static int draw_entry(wireless_scan *, int);
 static int is_known(wireless_scan *);
@@ -44,30 +48,35 @@ static wireless_config cur;
 static char cmd[MAX_LINE+1] = "";
 static char *killall = "killall", *wpa_sup = "wpa_supplicant", *re = "re", *an = "an";
 static char dhcp[DHCPLEN] = "dhcpcd";
+static const char *noname = "    <hidden>";
 
 int draw_entry(wireless_scan *ws,int sel) {
+	char *name = ws->b.essid;
+	if (!strlen(name)) name = (char *) noname;
 	/* known and/or currently connected */
 	attron(COLOR_PAIR(2));
-	if (strncmp(cur.essid,ws->b.essid,IW_ESSID_MAX_SIZE)==0) attron(A_REVERSE);
+	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attron(A_REVERSE);
 	if (is_known(ws)) printw("*");
 	else printw(" ");
-	if (strncmp(cur.essid,ws->b.essid,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
+	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
 	/* ESSID & selection cursor */
 	if (sel) attron(A_REVERSE);
 	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(4));
 	else attron(COLOR_PAIR(3));
-	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,ws->b.essid);
+	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,name);
 	if (sel) attroff(A_REVERSE);
 	/* Connection strength */
-	int perc = 100 * ws->stats.qual.qual / 64;
+	int perc = 100 * ws->stats.qual.qual / 70;
 	if (perc > 94) attron(COLOR_PAIR(5));
 	else if (perc > 84) attron(COLOR_PAIR(6));
 	else if (perc > 64) attron(COLOR_PAIR(7));
 	else attron(COLOR_PAIR(8));
 	printw("%3d%%\n",perc);
+	return 1;
 }
 
 int is_known(wireless_scan *ws) {
+	if (!strlen(ws->b.essid)) return False;
 	FILE *cfg = fopen(config,"r");
 	if (!cfg) return False;
 	char line[MAX_LINE+1];
@@ -106,7 +115,7 @@ int refresh_list() {
 	wireless_scan *ws;
 	int n;
 	for (ws = context.result, n=0; ws; ws = ws->next)
-		if (strlen(ws->b.essid) > 0) n++;
+		if ((mode & MODE_HIDDEN) || strlen(ws->b.essid)) n++;
 	clear();
 	return n-1;
 }
@@ -135,10 +144,11 @@ wireless_scan *show_menu() {
 	/* Init ncurses */
 	initscr(); raw(); noecho(); curs_set(0);
 	start_color(); use_default_colors();
-	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,12,-1); init_pair(4,9,-1);
-	init_pair(5,46,-1); init_pair(6,40,-1); init_pair(7,28,-1); init_pair(8,22,-1);
+	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,12,-1);
+	init_pair(4,9,-1); init_pair(5,46,-1); init_pair(6,40,-1);
+	init_pair(7,28,-1); init_pair(8,22,-1); init_pair(9,15,-1);
 	/* Select entry */
-	wireless_scan *ws;
+	wireless_scan *ws, *ss;
 	int running = True;
 	int c,i,sel = 0;
 	int n = refresh_list();
@@ -146,8 +156,11 @@ wireless_scan *show_menu() {
 		move(0,0);
 		attron(COLOR_PAIR(1));
 		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
-		for (ws = context.result, i=0; ws; ws = ws->next, i++)
-			if (strlen(ws->b.essid) >= 1) draw_entry(ws,(i==sel));
+		for (ws = context.result, i=0; ws; ws = ws->next)
+			if ((mode & MODE_HIDDEN) || strlen(ws->b.essid)) {
+				if (i == sel) ss = ws;
+				draw_entry(ws,((i++)==sel));
+			}
 		attron(COLOR_PAIR(1));
 		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
 		refresh();
@@ -160,14 +173,14 @@ wireless_scan *show_menu() {
 		if (sel >= n) sel = n;
 		else if (sel < 0) sel = 0;
 	}
+	endwin();
 	if (!running) {	/* "q" selected */
-		endwin();
 		iw_sockets_close(skfd);
 		exit(0);
 	}
-	for (i = 0, ws = context.result; i != sel; i++, ws = ws->next);
+	for (i = 0, ws = context.result; i != sel; ws = ws->next)
+		if ((mode & MODE_HIDDEN) || strlen(ws->b.essid)) i++;
 	/* End ncurses session & return result */
-	endwin();
 	return ws;
 }
 
@@ -273,6 +286,7 @@ int main(int argc, const char **argv) {
 	for (i = 1; i < argc; i++) {
 		if (strncmp(argv[i],"ad",2)==0) mode |= MODE_ADD;
 		else if (strncmp(argv[i],"au",2)==0) mode |= MODE_AUTO;
+		else if (strncmp(argv[i],"hi",2)==0) mode |= MODE_HIDDEN;
 		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY | MODE_AUTO);
 		else if (strncmp(argv[i],"re",2)==0) mode |= (MODE_RECONNECT | MODE_AUTO);
 		else if (strncmp(argv[i],"ve",2)==0) mode |= MODE_VERBOSE;
@@ -303,7 +317,9 @@ int main(int argc, const char **argv) {
 		sleep(1);
 		if ( (mode & MODE_ADD) && is_known(ws) ) mode &= ~MODE_ADD;
 		if (ws->b.key_flags == 2048) mode |= MODE_SECURE;
+		mode_t pre = umask(S_IWGRP|S_IWOTH|S_IRGRP|S_IROTH);
 		ws_connect(ws);
+		umask(pre);
 	}
 	else if ( !(mode & MODE_RECONNECT) ) {
 		fprintf(stderr,"[swifer] no suitable networks found.\n");
