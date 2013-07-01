@@ -261,7 +261,7 @@ int main(int argc, const char **argv) {
 				strncpy(ifname,val,IFNAMSIZ);
 			else if (sscanf(line,"DHCP = %s",val))
 				strncpy(dhcp,val,DHCPLEN);
-			else if (strncmp(line,"[NETWORKS]",10))
+			else if (strncmp(line,"[NETWORKS]",10)==0)
 				break;
 		}
 		free(line); free(val); fclose(cfg);
@@ -275,11 +275,11 @@ int main(int argc, const char **argv) {
 	int err;
 	strncpy(req.ifr_name,ifname,IFNAMSIZ);
 	if ( (err=ioctl(skfd,SIOCGIFFLAGS,&req)) ){
-		close(skfd); return 1;
+		close(skfd); return 2;
 	}
 	req.ifr_flags |= IFF_UP;
 	if (ioctl(skfd,SIOCSIFFLAGS,&req)) {
-		close(skfd); return 1;
+		close(skfd); return 3;
 	}
 	/* Processes command line arguments */
 	int i;
@@ -323,7 +323,7 @@ int main(int argc, const char **argv) {
 	}
 	else if ( !(mode & MODE_RECONNECT) ) {
 		fprintf(stderr,"[swifer] no suitable networks found.\n");
-		return 1;
+		return 5;
 	}
 	/* Keep alive to reconnect? */
 	iw_sockets_close(skfd);
