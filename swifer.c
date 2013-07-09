@@ -121,7 +121,7 @@ int refresh_list() {
 }
 
 int remove_network(const char *network) {
-	sprintf(cmd,"rm %s%s > /dev/null 2>&1",netpath,network);
+	sprintf(cmd,"rm \"%s%s\" > /dev/null 2>&1",netpath,network);
 	system(cmd);
 	FILE *cfg;
 	FILE *tmp;
@@ -235,7 +235,7 @@ int ws_connect(wireless_scan *ws) {
 		if (cfg) fclose(cfg);
 	}
 	else if (!is_known(ws) && (mode & MODE_SECURE)) {
-		sprintf(cmd,"rm %s",netfile);
+		sprintf(cmd,"rm \"%s\"",netfile);
 		system(cmd);
 	}	
 	if (netfile) {
