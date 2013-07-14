@@ -54,23 +54,21 @@ int draw_entry(wireless_scan *ws,int sel) {
 	char *name = ws->b.essid;
 	if (!strlen(name)) name = (char *) noname;
 	/* known and/or currently connected */
-	attrset(COLOR_PAIR(3)|A_BOLD);
-	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attron(A_REVERSE);
-	if (is_known(ws)) printw("*");
-	else printw(" ");
-	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
+	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attrset(COLOR_PAIR(3)|A_BOLD);
+	else if (ws->b.key_flags == 2048) attrset(COLOR_PAIR(1)|A_BOLD);
+	else attrset(COLOR_PAIR(2)|A_BOLD);
+	if (is_known(ws)) printw("=> ");
+	else printw(" > ");
 	/* ESSID & selection cursor */
-	if (ws->b.key_flags == 2048) attrset(COLOR_PAIR(1));
-	else attrset(COLOR_PAIR(2));
-	if (sel) attron(A_REVERSE);
+	if (sel) attrset(COLOR_PAIR(3)|A_BOLD|A_REVERSE);
+	else attrset(COLOR_PAIR(0));
 	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,name);
-	if (sel) attroff(A_REVERSE);
 	/* Connection strength */
 	int perc = 100 * ws->stats.qual.qual / 70;
 	if (perc > 94) attrset(COLOR_PAIR(2)|A_BOLD);
 	else if (perc > 84) attrset(COLOR_PAIR(2));
-	else if (perc > 64) attrset(COLOR_PAIR(3));
-	else attron(COLOR_PAIR(1));
+	else if (perc > 64) attrset(COLOR_PAIR(3)|A_BOLD);
+	else attrset(COLOR_PAIR(1)|A_BOLD);
 	printw("%3d%%\n",perc);
 	return 1;
 }
@@ -155,14 +153,14 @@ wireless_scan *show_menu() {
 	while (running) {
 		move(0,0);
 		attrset(COLOR_PAIR(4)|A_REVERSE|A_BOLD);
-		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
+		printw(" *  %-*s  %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
 		for (ws = context.result, i=0; ws; ws = ws->next)
 			if ((mode & MODE_HIDDEN) || strlen(ws->b.essid)) {
 				if (i == sel) ss = ws;
 				draw_entry(ws,((i++)==sel));
 			}
 		attrset(COLOR_PAIR(4)|A_REVERSE|A_BOLD);
-		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
+		printw("  %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
 		refresh();
 		c = getchar();
 		if (c == 'q') running = False;
