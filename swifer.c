@@ -54,23 +54,23 @@ int draw_entry(wireless_scan *ws,int sel) {
 	char *name = ws->b.essid;
 	if (!strlen(name)) name = (char *) noname;
 	/* known and/or currently connected */
-	attron(COLOR_PAIR(2));
+	attrset(COLOR_PAIR(3)|A_BOLD);
 	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attron(A_REVERSE);
 	if (is_known(ws)) printw("*");
 	else printw(" ");
 	if (strncmp(cur.essid,name,IW_ESSID_MAX_SIZE)==0) attroff(A_REVERSE);
 	/* ESSID & selection cursor */
+	if (ws->b.key_flags == 2048) attrset(COLOR_PAIR(1));
+	else attrset(COLOR_PAIR(2));
 	if (sel) attron(A_REVERSE);
-	if (ws->b.key_flags == 2048) attron(COLOR_PAIR(4));
-	else attron(COLOR_PAIR(3));
 	printw(" %-*s ",IW_ESSID_MAX_SIZE+2,name);
 	if (sel) attroff(A_REVERSE);
 	/* Connection strength */
 	int perc = 100 * ws->stats.qual.qual / 70;
-	if (perc > 94) attron(COLOR_PAIR(5));
-	else if (perc > 84) attron(COLOR_PAIR(6));
-	else if (perc > 64) attron(COLOR_PAIR(7));
-	else attron(COLOR_PAIR(8));
+	if (perc > 94) attrset(COLOR_PAIR(2)|A_BOLD);
+	else if (perc > 84) attrset(COLOR_PAIR(2));
+	else if (perc > 64) attrset(COLOR_PAIR(3));
+	else attron(COLOR_PAIR(1));
 	printw("%3d%%\n",perc);
 	return 1;
 }
@@ -108,7 +108,7 @@ wireless_scan *get_best() {
 
 int refresh_list() {
 	clear();
-	attron(COLOR_PAIR(2));
+	attrset(COLOR_PAIR(3)|A_BOLD);
 	printw("\n\n  Getting wifi listing ...\n");
 	refresh();
 	iw_scan(skfd,ifname,we_ver,&context);
@@ -144,9 +144,9 @@ wireless_scan *show_menu() {
 	/* Init ncurses */
 	initscr(); raw(); noecho(); curs_set(0);
 	start_color(); use_default_colors();
-	init_pair(1,232,4); init_pair(2,11,-1); init_pair(3,12,-1);
-	init_pair(4,9,-1); init_pair(5,46,-1); init_pair(6,40,-1);
-	init_pair(7,28,-1); init_pair(8,22,-1); init_pair(9,15,-1);
+	init_pair(1,1,-1); init_pair(2,2,-1); init_pair(3,3,-1);
+	init_pair(4,4,-1); init_pair(5,5,-1); init_pair(6,6,-1);
+	init_pair(7,7,-1);
 	/* Select entry */
 	wireless_scan *ws, *ss;
 	int running = True;
@@ -154,14 +154,14 @@ wireless_scan *show_menu() {
 	int n = refresh_list();
 	while (running) {
 		move(0,0);
-		attron(COLOR_PAIR(1));
+		attrset(COLOR_PAIR(4)|A_REVERSE|A_BOLD);
 		printw("* %-*s   %%  \n",IW_ESSID_MAX_SIZE+2,"Network"); 
 		for (ws = context.result, i=0; ws; ws = ws->next)
 			if ((mode & MODE_HIDDEN) || strlen(ws->b.essid)) {
 				if (i == sel) ss = ws;
 				draw_entry(ws,((i++)==sel));
 			}
-		attron(COLOR_PAIR(1));
+		attrset(COLOR_PAIR(4)|A_REVERSE|A_BOLD);
 		printw(" %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
 		refresh();
 		c = getchar();
