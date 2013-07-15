@@ -329,11 +329,13 @@ int main(int argc, const char **argv) {
 		if (fork() == 0) {
 			setsid();
 			int level = THRESHOLD + 1, ret;
+			char scanline[256];
+			snprintf(scanline,255,"%%*[^\n]\n%%*[^\n]\n %s: %%*d i%%d.",ifname);
 			FILE *procw;
 			while (level > THRESHOLD) {
 				sleep(TIMEOUT);
 				procw = fopen(PROC_NET_WIRELESS,"r");
-				ret = fscanf(procw,"%*[^\n]\n%*[^\n]\n wlan0: %*d %d.",&level);
+				ret = fscanf(procw,scanline,&level);
 				fclose(procw);
 				if (ret != 1) level = 0;
 			}
