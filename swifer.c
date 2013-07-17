@@ -42,6 +42,7 @@ static int ws_connect(wireless_scan *);
 static char ifname[IFNAMSIZ+1] = "wlan0";
 static const char *config = "/etc/swifer.conf";
 static const char *netpath = "/usr/share/swifer/";
+static char *hook_preup = NULL, *hook_postup = NULL;
 static int we_ver, skfd, mode;
 static wireless_scan_head context;
 static wireless_config cur;
@@ -201,6 +202,7 @@ int spawn(const char *proc,const char *netfile) {
 
 int ws_connect(wireless_scan *ws) {
 	char *netfile = NULL;
+	if (hook_preup) system(hook_preup);
 	if (mode & MODE_SECURE) {
 		netfile = (char *) calloc(strlen(netpath)+strlen(ws->b.essid)+2,
 			sizeof(char));
@@ -243,6 +245,7 @@ int ws_connect(wireless_scan *ws) {
 		netfile = NULL;
 	}
 	spawn(dhcp,netfile);
+	if (hook_postup) system(hook_postup);
 }
 
 int main(int argc, const char **argv) {
@@ -261,6 +264,10 @@ int main(int argc, const char **argv) {
 				strncpy(ifname,val,IFNAMSIZ);
 			else if (sscanf(line,"DHCP = %s",val))
 				strncpy(dhcp,val,DHCPLEN);
+			else if (sscanf(line,"PRE_UP = %s",val))
+				hook_preup = strdup(val);
+			else if (sscanf(line,"POST_EUP = %s",val))
+				hook_postup = strdup(val);
 			else if (strncmp(line,"[NETWORKS]",10)==0)
 				break;
 		}
@@ -344,6 +351,8 @@ int main(int argc, const char **argv) {
 			execvp(arg[0],(char * const *) arg);
 		}
 	}
+	if (hook_preup) free(hook_preup);
+	if (hook_postup) free(hook_postup);
 	return 0;
 }
 
