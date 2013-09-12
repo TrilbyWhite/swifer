@@ -14,6 +14,8 @@
 #include <iwlib.h>
 #include <netinet/in.h>
 
+#define MAX(a,b)	(a > b ? a : b)
+
 #define True	1
 #define False	0
 
@@ -79,11 +81,13 @@ int is_known(wireless_scan *ws) {
 	FILE *cfg = fopen(config,"r");
 	if (!cfg) return False;
 	char line[MAX_LINE+1];
+	int len = 0;
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
 		if (strncmp(line,"[NETWORKS]",10) == 0)
 			break;
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
-		if (strncmp(line,ws->b.essid,strlen(ws->b.essid)) == 0) {
+		len = MAX(strlen(line),strlen(ws->b.essid));
+		if (strncmp(line,ws->b.essid,len) == 0) {
 			fclose(cfg);
 			return True;
 		}
