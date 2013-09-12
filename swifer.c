@@ -338,7 +338,7 @@ int main(int argc, const char **argv) {
 			setsid();
 			int level = THRESHOLD + 1, ret;
 			char scanline[256];
-			snprintf(scanline,255,"%%*[^\n]\n%%*[^\n]\n %s: %%*d i%%d.",ifname);
+			snprintf(scanline,255,"%%*[^\n]\n%%*[^\n]\n%s: %%*d %%d.",ifname);
 			FILE *procw;
 			while (level > THRESHOLD) {
 				sleep(TIMEOUT);
