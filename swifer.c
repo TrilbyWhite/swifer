@@ -81,13 +81,11 @@ int is_known(wireless_scan *ws) {
 	FILE *cfg = fopen(config,"r");
 	if (!cfg) return False;
 	char line[MAX_LINE+1];
-	int len = 0;
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
 		if (strncmp(line,"[NETWORKS]",10) == 0)
 			break;
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
-		len = MAX(strlen(line),strlen(ws->b.essid));
-		if (strncmp(line,ws->b.essid,len) == 0) {
+		if (strcmp(line,ws->b.essid) == 0) {
 			fclose(cfg);
 			return True;
 		}
