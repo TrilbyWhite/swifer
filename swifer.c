@@ -258,13 +258,14 @@ int main(int argc, const char **argv) {
 		char *line = calloc(MAX_LINE+1,sizeof(char));
 		char *val = calloc(MAX_LINE+1,sizeof(char));
 		while (fgets(line,MAX_LINE,cfg) != NULL) {
+			if (line[0] == '#') continue;
 			if (sscanf(line,"INTERFACE = %s",val))
 				strncpy(ifname,val,IFNAMSIZ);
 			else if (sscanf(line,"DHCP = %s",val))
 				strncpy(dhcp,val,DHCPLEN);
 			else if (sscanf(line,"PRE_UP = %s",val))
 				hook_preup = strdup(val);
-			else if (sscanf(line,"POST_EUP = %s",val))
+			else if (sscanf(line,"POST_UP = %s",val))
 				hook_postup = strdup(val);
 			else if (strncmp(line,"[NETWORKS]",10)==0)
 				break;
