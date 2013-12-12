@@ -84,11 +84,13 @@ int is_known(wireless_scan *ws) {
 	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
 		if (strncmp(line,"[NETWORKS]",10) == 0)
 			break;
-	while ( (fgets(line,MAX_LINE,cfg)) != NULL)
+	while ( (fgets(line,MAX_LINE,cfg)) != NULL)	{
+		line[strlen(line)-1] = '\0';
 		if (strcmp(line,ws->b.essid) == 0) {
 			fclose(cfg);
 			return True;
 		}
+	}
 	fclose(cfg);
 	return False;
 }
