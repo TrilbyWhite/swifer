@@ -285,7 +285,15 @@ int main(int argc, const char **argv) {
 	int err;
 	strncpy(req.ifr_name,ifname,IFNAMSIZ);
 	if ( (err=ioctl(skfd,SIOCGIFFLAGS,&req)) ){
-		close(skfd); return 2;
+		int loop = 0;
+		while ( (err=ioctl(skfd,SIOCGIFFLAGS,&req)) ) {
+			usleep(100000);
+			if (loop++ > 50) break;
+		}
+		if (err) {
+			close(skfd);
+			return 2;
+		}
 	}
 	req.ifr_flags |= IFF_UP;
 	if (ioctl(skfd,SIOCSIFFLAGS,&req)) {
