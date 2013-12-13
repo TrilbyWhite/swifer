@@ -2,8 +2,8 @@
 Description=Simpler wifi connector tool
 Before=network.target
 Wants=network.target
-BindsTo=sys-subsystem-net-devices-<interface>.device
-After=sys-subsystem-net-devices-<interface>.device
+BindsTo=sys-subsystem-net-devices-%i.device
+After=sys-subsystem-net-devices-%i.device
 
 [Service]
 RemainAfterExit=yes
