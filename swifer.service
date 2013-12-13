@@ -1,0 +1,15 @@
+[Unit]
+Description=Simpler wifi connector tool
+Before=network.target
+Wants=network.target
+
+[Service]
+RemainAfterExit=yes
+Type=forking
+ExecStart=/usr/bin/swifer auto
+#ExecStart=/usr/bin/swifer any
+#ExecStart=/usr/bin/swifer auto reconnect
+#ExecStart=/usr/bin/swifer any reconnect
+
+[Install]
+WantedBy=multi-user.target
