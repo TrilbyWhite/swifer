@@ -14,6 +14,11 @@
 #include <iwlib.h>
 #include <netinet/in.h>
 
+/* for wireless tools v30.pre-9 */
+#ifndef PROC_NET_WIRELESS
+#define PROC_NET_WIRELESS "/proc/net/wireless"
+#endif /* PROC_NET_WIRELESS */
+
 #define MAX(a,b)	(a > b ? a : b)
 
 #define True	1
