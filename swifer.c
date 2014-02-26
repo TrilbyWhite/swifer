@@ -55,7 +55,7 @@ static wireless_scan_head context;
 static wireless_config cur;
 static char cmd[MAX_LINE+1] = "";
 static char *killall = "killall", *wpa_sup = "wpa_supplicant", *re = "re", *an = "an";
-static char dhcp[DHCPLEN] = "dhcpcd";
+static char dhcp[DHCPLEN+1] = "dhcpcd";
 static const char *noname = "    <hidden>";
 
 int draw_entry(wireless_scan *ws,int sel) {
