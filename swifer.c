@@ -25,16 +25,17 @@
 #define False	0
 
 #define TIMEOUT		10
-#define THRESHOLD	10
-#define MAX_LINE	255
+#define THRESHOLD		10
+#define MAX_LINE		255
 #define DHCPLEN		24
 
-#define MODE_AUTO		0x0001
-#define MODE_ANY		0x0002
-#define MODE_ADD		0x0010
-#define MODE_RECONNECT	0x0100
+#define MODE_AUTO			0x0001
+#define MODE_ANY			0x0002
+#define MODE_ADD			0x0010
+#define MODE_WAIT			0x0100
+#define MODE_RECONNECT	0x0200
 #define MODE_SECURE		0x1000
-#define MODE_VERBOSE	0x2000
+#define MODE_VERBOSE		0x2000
 #define MODE_HIDDEN		0x4000
 
 static int draw_entry(wireless_scan *, int);
@@ -170,7 +171,7 @@ wireless_scan *show_menu() {
 				draw_entry(ws,((i++)==sel));
 			}
 		attrset(COLOR_PAIR(4)|A_REVERSE|A_BOLD);
-		printw("  %-*s \n",IW_ESSID_MAX_SIZE+8," "); 
+		printw("  %-*s \n",IW_ESSID_MAX_SIZE+8," ");
 		refresh();
 		c = getchar();
 		if (c == 'q') running = False;
@@ -196,7 +197,7 @@ int spawn(const char *proc,const char *netfile) {
 	if (fork() != 0) return 0;
 	const char *args[7];
 	args[0] = proc;
-	if (netfile) {	
+	if (netfile) {
 		args[1] = "-B"; args[2] = "-i"; args[3] = ifname;
 		args[4] = "-c"; args[5] = netfile; args[6] = NULL;
 	}
@@ -246,7 +247,7 @@ int ws_connect(wireless_scan *ws) {
 	else if (!is_known(ws) && (mode & MODE_SECURE)) {
 		sprintf(cmd,"rm \"%s\"",netfile);
 		system(cmd);
-	}	
+	}
 	if (netfile) {
 		free(netfile);
 		netfile = NULL;
@@ -313,6 +314,7 @@ int main(int argc, const char **argv) {
 		else if (strncmp(argv[i],"an",2)==0) mode |= (MODE_ANY | MODE_AUTO);
 		else if (strncmp(argv[i],"re",2)==0) mode |= (MODE_RECONNECT | MODE_AUTO);
 		else if (strncmp(argv[i],"ve",2)==0) mode |= MODE_VERBOSE;
+		else if (strncmp(argv[i],"wa",2)==0) mode |= MODE_WAIT;
 		else if (strncmp(argv[i],"de",2)==0) {
 			if (argc > i+1) remove_network(argv[i+1]);
 		}
@@ -323,7 +325,15 @@ int main(int argc, const char **argv) {
 	/* Scan and select network */
 	iw_scan(skfd,ifname,we_ver,&context);
 	wireless_scan *ws;
-	if (mode & MODE_AUTO) ws = get_best();
+	if (mode & MODE_AUTO) {
+		if (mode && MODE_WAIT) {
+			int loops;
+			/* keep trying for up to 5 minutes */
+			for (loops = 0; loops < 30 && !(ws=get_best()); ++loops)
+				sleep(TIMEOUT);
+		}
+		else ws = get_best();
+	}
 	else ws = show_menu();
 	const char *arg[4];
 	if (ws) { /* Stop any current processes then connect to "ws" */
